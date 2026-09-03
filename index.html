@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>剪贴面板</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!-- 页面 JS 错误提示条（调试用，正常时隐藏） -->
+<div id="errbar" class="hidden"></div>
+
+<!-- ============ 正常面板 ============ -->
+<div id="app">
+  <header id="titlebar">
+    <div class="brand"><span class="dot"></span>剪贴面板</div>
+    <button id="btnCollapseBar" class="collapse-bar" title="收缩成一条长条">─ 收缩 ▾</button>
+    <div class="tb-actions">
+      <button id="btnDock" class="tb-btn" title="隐藏到屏幕侧边">⤢</button>
+      <button id="btnTop" class="tb-btn" title="锁定位置（点击后面板不能移动）">🔓</button>
+      <button id="btnGear" class="tb-btn" title="设置">⚙</button>
+      <button id="btnMin" class="tb-btn" title="最小化">─</button>
+      <button id="btnClose" class="tb-btn danger" title="关闭">✕</button>
+    </div>
+  </header>
+
+  <div id="workspace" data-orient="v">
+    <!-- 剪贴板气泡 -->
+    <section id="pane-clipboard" class="bubble">
+      <div class="bubble-head">
+        <span class="bubble-title">📋 剪贴板</span>
+        <span class="bubble-count" id="countClip">0</span>
+        <button id="clipMinBtn" class="min-box" title="关闭此区域（从四壁唤出）">▂</button>
+      </div>
+      <div id="tagbar" class="tagbar"></div>
+      <div class="clip-tools">
+        <input id="search" type="text" placeholder="搜索剪贴历史…" autocomplete="off">
+        <button id="btnClear" class="ghost" title="清空记录（保留置顶项）">清空</button>
+      </div>
+      <div id="clipList" class="list"></div>
+      <div class="statusbar"><span id="clipStatus"></span></div>
+    </section>
+
+    <!-- 分隔条：横向布局为竖条调宽，上下布局为横条调高 -->
+    <div id="splitter" title="拖动调节两区大小，双击恢复均分"></div>
+
+    <!-- 相册气泡 -->
+    <section id="pane-album" class="bubble">
+      <div class="bubble-head">
+        <span class="bubble-title">🖼 相册</span>
+        <span class="bubble-count" id="countAlbum">0</span>
+        <button id="albumMinBtn" class="min-box" title="关闭此区域（从四壁唤出）">▂</button>
+      </div>
+      <div id="albumTagbar" class="tagbar"></div>
+      <div class="album-tools">
+        <button id="btnAddFolder" class="ghost">＋ 文件夹</button>
+        <button id="btnOpenAlbum" class="ghost">打开目录</button>
+      </div>
+      <div id="folderChips" class="chips"></div>
+      <div id="albumGrid" class="grid"></div>
+      <div id="dropHint" class="drop-hint hidden">松开鼠标，图片将加入相册</div>
+      <div class="statusbar"><span id="albumStatus"></span></div>
+    </section>
+  </div>
+</div>
+
+<!-- ============ 折叠后的长条 ============ -->
+<div id="collapsedBar" class="hidden">
+  <div class="cb-brand"><span class="dot"></span>剪贴面板</div>
+  <div class="cb-hint">点击展开 ▸</div>
+  <button id="btnExpand" class="cb-btn" title="展开面板">▸</button>
+</div>
+
+<!-- ============ 关闭的框：四壁唤出亮线 ============ -->
+<div id="cornerHints">
+  <div class="edge top" data-side="top" title="在上方唤出"></div>
+  <div class="edge right" data-side="right" title="在右侧唤出"></div>
+  <div class="edge bottom" data-side="bottom" title="在下方唤出"></div>
+  <div class="edge left" data-side="left" title="在左侧唤出"></div>
+</div>
+
+<!-- ============ 贴边隐藏时的侧边把手 ============ -->
+<div id="dockHandle" title="移出并恢复面板"><span id="dockArrow">‹</span></div>
+
+<!-- ============ 设置弹层 ============ -->
+<div id="popover" class="popover hidden">
+  <div class="pop-row">
+    <span>面板置顶</span>
+    <input type="checkbox" id="optTop">
+  </div>
+  <div class="pop-row"><span>面板风格</span></div>
+  <div class="themes">
+    <button class="theme-btn active" data-theme="memphis"><span class="tdot" style="background:#FF5B25"></span>波普</button>
+    <button class="theme-btn" data-theme="kawaii"><span class="tdot" style="background:#FF7B9C"></span>可爱</button>
+    <button class="theme-btn" data-theme="paper"><span class="tdot" style="background:#1a1a1a"></span>手账</button>
+    <button class="theme-btn" data-theme="news"><span class="tdot" style="background:#0f3b3b"></span>报刊</button>
+    <button class="theme-btn" data-theme="bubble"><span class="tdot" style="background:#F0925A"></span>气泡</button>
+  </div>
+  <div class="pop-row"><span>面板透明度</span>
+    <input type="range" id="opacityRange" min="0.3" max="1" step="0.05" value="1" title="调整面板透明度">
+  </div>
+  <div class="pop-row">
+    <span>面板尺寸</span>
+    <div class="sizes">
+      <button data-w="720" data-h="520">小</button>
+      <button data-w="960" data-h="620">中</button>
+      <button data-w="1280" data-h="860">大</button>
+    </div>
+  </div>
+  <div class="pop-row"><button id="btnClearAll" class="danger">清空全部剪贴记录</button></div>
+  <div class="pop-foot">剪贴面板 v1.3 · 支持多种风格切换</div>
+</div>
+
+<!-- ============ 标签编辑弹层 ============ -->
+<div id="tagEditor" class="tagpop hidden">
+  <div class="tagpop-title">🏷 标注标签</div>
+  <div class="tagpop-input">
+    <input id="tagInput" type="text" placeholder="输入标签，回车添加" autocomplete="off">
+    <button id="tagAdd" class="ghost">添加</button>
+  </div>
+  <div id="tagSuggest" class="tag-suggest"></div>
+  <div id="tagCurrent" class="tag-current"></div>
+  <div class="tagpop-foot"><button id="tagDone" class="ghost">完成</button></div>
+</div>
+
+<script src="renderer.js"></script>
+</body>
+</html>

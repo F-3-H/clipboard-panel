@@ -1,0 +1,15 @@
+{
+  "name": "clipboard-panel",
+  "version": "1.0.0",
+  "description": "桌面剪贴板历史面板 + 电脑图片相册",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^44.1.0",
+    "jsdom": "^30.0.1"
+  }
+}

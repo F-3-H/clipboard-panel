@@ -1,0 +1,32 @@
+# 依赖
+node_modules/
+
+# 安装/下载缓存
+.electron-cache/
+.npm-cache/
+
+# 运行时与测试遗留
+.cliptest-data/
+.test-data*/
+.bootdata*/
+.winboot/
+testapp/
+boottest/
+boottest2/
+clip-test/
+probe/
+*.log
+debug.log
+shot-*.png
+err.log
+out.log
+app.log
+marker-*.txt
+boot-ok-*.txt
+winboot-*.txt
+boot-err-*.txt
+
+# 系统
+Thumbs.db
+.DS_Store
+*.lnk
