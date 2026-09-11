@@ -11,7 +11,10 @@ const cases = [
   { name: 'MathML 分式嵌套', html: '<math><mfrac><mrow><mo>(</mo><mi>a</mi><mo>+</mo><mi>b</mi><mo>)</mo></mrow><mn>2</mn></mfrac></math>' },
   { name: 'OMML 分数', rtf: '<m:oMath><m:f><m:num><m:r><m:t>a</m:t></m:r></m:num><m:den><m:r><m:t>b</m:t></m:r></m:den></m:f></m:oMath>' },
   { name: 'OMML 根号+上标', rtf: '<m:oMath><m:rad><m:deg/><m:e><m:r><m:t>x</m:t></m:r></m:e></m:rad><m:sSup><m:e><m:r><m:t>y</m:t></m:r></m:e><m:sup><m:r><m:t>2</m:t></m:r></m:sup></m:sSup></m:oMath>' },
-  { name: 'OMML 积分', rtf: '<m:oMath><m:nary><m:naryPr><m:chr m:val="∫"/></m:naryPr><m:sub><m:r><m:t>0</m:t></m:r></m:sub><m:sup><m:r><m:t>1</m:t></m:r></m:sup><m:e><m:r><m:t>x</m:t></m:r></m:e></m:nary></m:oMath>' }
+  { name: 'OMML 积分', rtf: '<m:oMath><m:nary><m:naryPr><m:chr m:val="∫"/></m:naryPr><m:sub><m:r><m:t>0</m:t></m:r></m:sub><m:sup><m:r><m:t>1</m:t></m:r></m:sup><m:e><m:r><m:t>x</m:t></m:r></m:e></m:nary></m:oMath>' },
+  { name: 'HTML 上下标公式', html: '<p>f(z)=f(z<sub>0</sub>)+f&#39;(z<sub>0</sub>)(z-z<sub>0</sub>)+f&#39;&#39;(z<sub>0</sub>)/2!(z-z<sub>0</sub>)<sup>2</sup></p>' },
+  { name: 'HTML 表格分数', html: '<table><tr><td>a+b</td></tr><tr><td>c</td></tr></table>' },
+  { name: 'RTF 转义 OMML', rtf: '{\\rtf1\\ansi \\{\\*\\moMath <m:oMath><m:f><m:num><m:r><m:t>x</m:t></m:r></m:num><m:den><m:r><m:t>y</m:t></m:r></m:den></m:f></m:oMath>\\} }' }
 ]
 
 for (const c of cases) {

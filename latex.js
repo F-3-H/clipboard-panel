@@ -33,6 +33,14 @@ const local = (n) => String(n).replace(/^.*:/, '').toLowerCase()
 const kids = (n) => (n && n.children) || []
 const textOf = (n) => kids(n).map((c) => (c.name === '#text' ? c.text : textOf(c))).join('')
 const esc = (s) => String(s).replace(/([#$%&_{}])/g, '\\$1')
+const stripTags = (s) => String(s).replace(/<[^>]*>/g, '')
+
+// RTF 反转义（\\( \{ \} 以及 \'hh）
+function unescapeRtf(s) {
+  return String(s || '')
+    .replace(/\\'([0-9a-fA-F]{2})/g, (_, h) => safeChar(parseInt(h, 16)))
+    .replace(/\\([\\{}])/g, '$1')
+}
 
 // HTML/XML 实体解码（Word 的 MathML 常用 &#8721; 这类数字实体表示符号）
 function safeChar(cp) {
@@ -235,6 +243,29 @@ function omml(node) {
 }
 
 // ---------------- 对外接口 ----------------
+// HTML（Word 复制公式常见的 sup/sub、表格分数结构）-> LaTeX
+function htmlToLatex(html) {
+  let s = String(html || '')
+  s = s.replace(/<(script|style)[\s\S]*?<\/\1>/gi, '')
+  const b = /<body[^>]*>([\s\S]*?)<\/body>/i.exec(s)
+  if (b) s = b[1]
+  s = s.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (_, tbl) => {
+    const rows = []
+    const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
+    let m
+    while ((m = rowRe.exec(tbl)) !== null) rows.push(stripTags(m[1]).replace(/\s+/g, ' ').trim())
+    if (rows.length === 2 && rows[0] && rows[1]) return '\\frac{' + rows[0] + '}{' + rows[1] + '}'
+    return rows.join(' ')
+  })
+  s = s.replace(/<sup[^>]*>([\s\S]*?)<\/sup>/gi, (_, x) => '^{' + stripTags(x).replace(/\s+/g, '') + '}')
+  s = s.replace(/<sub[^>]*>([\s\S]*?)<\/sub>/gi, (_, x) => '_{' + stripTags(x).replace(/\s+/g, '') + '}')
+  s = s.replace(/<br\s*\/?>/gi, ' ')
+  s = stripTags(s)
+  s = decodeEntities(s).replace(/\u00a0/g, ' ')
+  s = s.replace(/([∑∏∫√≤≥≠±×÷∞∂∇∈∪∩→←↔⇒⇔αβγδεζηθικλμνξπρστυφχψωΓΔΘΛΞΠΣΦΨΩ])/g, (c) => SYM[c] || c)
+  return s.replace(/\s+/g, ' ').trim()
+}
+
 function extractMathml(html) {
   const m = /<math[\s>][\s\S]*?<\/math>/i.exec(String(html || ''))
   return m ? m[0] : ''
@@ -256,6 +287,7 @@ function clean(latex) {
 
 // 从记录的 HTML / RTF 中推导 LaTeX
 function toLatex({ html, rtf, mathml }) {
+  // 1) MathML
   try {
     const mmlSrc = extractMathml(html) || (mathml && /<math[\s>]/i.test(mathml) ? mathml : '')
     if (mmlSrc) {
@@ -264,8 +296,9 @@ function toLatex({ html, rtf, mathml }) {
       if (out) return out
     }
   } catch {}
+  // 2) OMML（RTF 里可能是转义形式，先原样再反转义各试一次）
   try {
-    const ommlSrc = extractOmml(rtf) || extractOmml(html)
+    const ommlSrc = extractOmml(rtf) || extractOmml(unescapeRtf(rtf)) || extractOmml(html)
     if (ommlSrc) {
       const tree = parseXml(ommlSrc)
       const root = tree.children.find((c) => /omath/i.test(c.name)) || tree
@@ -273,7 +306,14 @@ function toLatex({ html, rtf, mathml }) {
       if (out) return out
     }
   } catch {}
+  // 3) HTML 的上下标 / 表格分数结构
+  try {
+    if (/<sup|<sub|<table/i.test(String(html || ''))) {
+      const out = clean(htmlToLatex(html))
+      if (out && /(\\frac|\^\{|_\{|=)/.test(out)) return out
+    }
+  } catch {}
   return ''
 }
 
-module.exports = { toLatex, parseXml, mmlToLatex: mml, ommlToLatex: omml, extractMathml, extractOmml }
+module.exports = { toLatex, parseXml, mmlToLatex: mml, ommlToLatex: omml, extractMathml, extractOmml, htmlToLatex }
