@@ -730,6 +730,19 @@ body[data-theme="oil"] .popover, body[data-theme="oil"] .tagpop { background: #1
 body[data-theme="oil"] .pop-foot { color: #8a7c68; }
 body[data-theme="oil"] #toast { background: #1b2330; border-color: var(--gold); color: #f2e3c2; }
 
+/* LaTeX 公式预览 */
+.item-latex {
+  margin-top: 6px; padding: 5px 9px; border-radius: 8px;
+  background: rgba(79, 124, 255, .10); border: 1px dashed rgba(79, 124, 255, .45);
+  color: #2f4bb0; font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 12px; word-break: break-all; max-height: 60px; overflow: hidden;
+}
+body[data-theme="oil"] .item-latex { background: rgba(63, 95, 156, .25); border-color: rgba(120, 160, 240, .5); color: #cfe0ff; }
+body[data-theme="bubble"] .item-latex { background: rgba(240, 146, 90, .12); border-color: rgba(240, 146, 90, .45); color: #b5652f; }
+body[data-theme="paper"] .item-latex { background: #fff; border-color: #bbb; color: #333; }
+body[data-theme="kawaii"] .item-latex { background: rgba(255, 216, 107, .18); border-color: rgba(255, 123, 156, .5); color: #b5652f; }
+body[data-theme="news"] .item-latex { background: #fdf9ec; border-color: var(--ink); color: var(--ink); }
+
 /* 富文本 / 公式 徽章 */
 .rich-badge {
   font-size: 10px; padding: 1px 7px; border-radius: 8px; font-weight: 700;

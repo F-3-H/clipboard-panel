@@ -343,6 +343,7 @@ function renderClipboard() {
       let body = ''
       if (it.type === 'text') {
         body = `<div class="item-text">${escapeHtml(it.text)}</div>`
+        if (it.latex) body += `<div class="item-latex">${escapeHtml(it.latex)}</div>`
       } else if (it.type === 'image') {
         body = `<div class="item-name">剪贴板图片</div>`
       } else {
@@ -476,7 +477,11 @@ els.clipList.addEventListener('click', async (e) => {
   const act = btn.dataset.act
   if (act === 'tag') { openTagEditor('clip', id); return }
   try {
-    if (act === 'copy') { await api.copyItem(id); toast('已复制到剪贴板') }
+    if (act === 'copy') {
+      await api.copyItem(id)
+      const it = S.history.find((x) => x.id === id)
+      toast(it && it.latex ? '已复制 LaTeX 公式：Word 里按 Alt+= 粘贴即可' : '已复制到剪贴板')
+    }
     else if (act === 'pin') {
       const willPin = !itemEl.classList.contains('pinned')
       await api.setPin(id, willPin)

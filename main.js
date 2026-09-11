@@ -15,6 +15,7 @@ const crypto = require('crypto')
 const os = require('os')
 const { execFile } = require('child_process')
 const { pathToFileURL } = require('url')
+const { toLatex } = require('./latex')
 
 const APP_NAME = 'clipboard-panel'
 // 数据目录：可用环境变量覆盖（便携模式 / 测试用）；默认存用户目录 AppData。
@@ -289,12 +290,16 @@ function maybeAddRich(fmt) {
   const text = plain || (html ? stripHtml(html) : '')
   if (!text && !html && !mathml) return
   if (history.length && history[0].type === 'text' && history[0].text === text && (history[0].html || '') === html) return
-  const hasFormula = /<math[\s>]/i.test(html) || /<m:oMath[\s>]/i.test(html) || !!mathml
+  // 尝试把公式转成 LaTeX：便于在 Word 公式编辑器里粘贴编译
+  let latex = ''
+  try { latex = toLatex({ html, rtf, mathml }) } catch (e) { log('latex conv err: ' + (e && e.message || e)) }
+  const hasFormula = !!latex || /<math[\s>]/i.test(html) || /<m:oMath[\s>]/i.test(html) || !!mathml
   addItem({
     id: uid(), type: 'text', text,
     html: html || undefined,
     rtf: rtf || undefined,
     mathml: mathml || undefined,
+    latex: latex || undefined,
     rich: !!(html || rtf || mathml),
     formula: hasFormula,
     pinned: false, time: Date.now()
@@ -664,7 +669,12 @@ function registerIpc() {
     if (!item) return false
     try {
       if (item.type === 'text') {
-        // 优先用系统原生剪贴板写回 RTF/HTML：Word 会采用 RTF，从而得到"可编辑公式"
+        // 公式条目：复制 LaTeX 文本，便于在 Word 公式编辑器（Alt+=）里粘贴编译
+        if (item.latex) {
+          await clipboard.writeText(item.latex)
+          return true
+        }
+        // 其余富文本：优先用系统原生剪贴板写回 RTF/HTML
         if (item.rtf || item.html) {
           const ok = await writeClipboardNative({ text: item.text || '', rtf: item.rtf || '', html: item.html || '' })
           if (ok) return true
