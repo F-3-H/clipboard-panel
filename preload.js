@@ -21,6 +21,7 @@ if (contextBridge && ipcRenderer) {
 
     // clipboard history
     copyItem: (id) => ipcRenderer.invoke('item:copy', id),
+    copyLatex: (id) => ipcRenderer.invoke('item:copy-latex', id),
     setPin: (id, pinned) => ipcRenderer.invoke('item:pin', { id, pinned }),
     deleteItem: (id) => ipcRenderer.invoke('item:delete', id),
     clearHistory: () => ipcRenderer.invoke('item:clear'),

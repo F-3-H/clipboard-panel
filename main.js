@@ -321,7 +321,7 @@ function maybeAddRich(fmt) {
   if (history.length && history[0].type === 'text' && history[0].text === text && (history[0].html || '') === html) return
   // 尝试把公式转成 LaTeX：便于在 Word 公式编辑器里粘贴编译
   let latex = ''
-  try { latex = toLatex({ html, rtf, mathml }) } catch (e) { log('latex conv err: ' + (e && e.message || e)) }
+  try { latex = toLatex({ html, rtf, mathml, plain: text }) } catch (e) { log('latex conv err: ' + (e && e.message || e)) }
   const hasFormula = !!latex || /<math[\s>]/i.test(html) || /<m:oMath[\s>]/i.test(html) || !!mathml
   // 诊断：没有转出 LaTeX 时，记录剪贴板原始内容片段，便于定位公式的表示方式
   if (!latex) {
@@ -726,19 +726,18 @@ function registerIpc() {
     if (!item) return false
     try {
       if (item.type === 'text') {
-        // 公式条目：复制 LaTeX 文本，便于在 Word 公式编辑器（Alt+=）里粘贴编译
-        if (item.latex) {
-          await clipboard.writeText(item.latex)
-          return true
+        // 优先富文本（RTF / HTML）：粘到 Word 直接是可编辑公式（实测有效）
+        if (item.rtf || item.html || item.mathml) {
+          if (item.rtf || item.html) {
+            const ok = await writeClipboardNative({ text: item.text || '', rtf: item.rtf || '', html: item.html || '' })
+            if (ok) return true
+            log('native write failed, fallback to clipboard API')
+          }
+          if (item.html || item.mathml) { await writeRichToClipboard(item); return true }
         }
-        // 其余富文本：优先用系统原生剪贴板写回 RTF/HTML
-        if (item.rtf || item.html) {
-          const ok = await writeClipboardNative({ text: item.text || '', rtf: item.rtf || '', html: item.html || '' })
-          if (ok) return true
-          log('native write failed, fallback to clipboard API')
-        }
-        if (item.html || item.mathml) await writeRichToClipboard(item)
-        else await clipboard.writeText(item.text)
+        // 没有富文本结构时退化为 LaTeX 文本
+        if (item.latex) { await clipboard.writeText(item.latex); return true }
+        await clipboard.writeText(item.text)
       } else if (item.type === 'image') {
         const f = path.join(imagesDir, item.hash + '.png')
         if (fs.existsSync(f)) await writeImageToClipboard(fs.readFileSync(f))
@@ -748,6 +747,12 @@ function registerIpc() {
       }
       return true
     } catch (e) { log('copy err: ' + (e && e.message || e)); return false }
+  })
+
+  ipcMain.handle('item:copy-latex', async (_e, id) => {
+    const item = history.find(i => i.id === id)
+    if (!item || !item.latex) return false
+    try { await clipboard.writeText(item.latex); return true } catch { return false }
   })
 
   ipcMain.handle('item:pin', (_e, payload) => {

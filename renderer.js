@@ -360,7 +360,8 @@ function renderClipboard() {
         <div class="item-body">${body}${(richBadge || tags) ? `<div class="item-tags">${richBadge}${tags}</div>` : ''}<div class="item-meta">${pin}<span>${t}</span></div></div>
         <div class="item-actions">
           <button class="mini-btn" data-act="tag" title="标注标签">🏷</button>
-          <button class="mini-btn" data-act="copy" title="复制回剪贴板">⧉</button>
+          <button class="mini-btn" data-act="copy" title="复制（富文本优先，粘到 Word 是可编辑公式）">⧉</button>
+          ${it.latex ? '<button class="mini-btn" data-act="latex" title="复制 LaTeX（粘到 Word 公式编辑器）">∑</button>' : ''}
           <button class="mini-btn${it.pinned ? ' pin-on' : ''}" data-act="pin" title="置顶/取消置顶">${it.pinned ? '★' : '☆'}</button>
           <button class="mini-btn del" data-act="del" title="删除">✕</button>
         </div>
@@ -482,7 +483,11 @@ els.clipList.addEventListener('click', async (e) => {
     if (act === 'copy') {
       await api.copyItem(id)
       const it = S.history.find((x) => x.id === id)
-      toast(it && it.latex ? '已复制 LaTeX 公式：Word 里按 Alt+= 粘贴即可' : '已复制到剪贴板')
+      toast(it && (it.formula || it.rich) ? '已复制富文本：粘到 Word 即为可编辑公式' : '已复制到剪贴板')
+    }
+    else if (act === 'latex') {
+      await api.copyLatex(id)
+      toast('已复制 LaTeX：Word 里 Alt+= 后粘贴，必要时在「转换」里选 LaTeX')
     }
     else if (act === 'pin') {
       const willPin = !itemEl.classList.contains('pinned')

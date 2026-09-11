@@ -281,13 +281,13 @@ function extractOmml(xmlish) {
 function clean(latex) {
   return String(latex || '')
     .replace(/\s+/g, ' ')
-    .replace(/(\\[a-zA-Z]+) +(?=[_^{])/g, '$1')      // \sum _{...} -> \sum_{...}
+    .replace(/(\\[a-zA-Z]+) +(?=[_^{}\]])/g, '$1')   // \sum _{...} -> \sum_{...}；\infty } -> \infty}
     .replace(/\\left\s*\\right/g, '')
     .trim()
 }
 
-// 从记录的 HTML / RTF 中推导 LaTeX
-function toLatex({ html, rtf, mathml }) {
+// 从记录的 HTML / RTF / 纯文本 中推导 LaTeX
+function toLatex({ html, rtf, mathml, plain }) {
   // 1) MathML
   try {
     const mmlSrc = extractMathml(html) || (mathml && /<math[\s>]/i.test(mathml) ? mathml : '')
@@ -314,7 +314,21 @@ function toLatex({ html, rtf, mathml }) {
       if (out && /(\\frac|\^\{|_\{|=)/.test(out)) return out
     }
   } catch {}
+  // 4) 纯文本本身就是公式：LaTeX 源码（AI 聊天常见）或线性公式
+  try {
+    const t = String(plain || '').trim()
+    if (t && t.length <= 2000 && isFormulaText(t)) return clean(t)
+  } catch {}
   return ''
 }
 
-module.exports = { toLatex, parseXml, mmlToLatex: mml, ommlToLatex: omml, extractMathml, extractOmml, htmlToLatex }
+// 判断纯文本是否本身就是公式（LaTeX 源码或线性格式）
+function isFormulaText(t) {
+  if (/\\[a-zA-Z]{2,}/.test(t)) return true                  // \frac \sum \alpha ...
+  if (/[∑∏∫√∞≠≤≥±∓]/.test(t)) return true                   // 数学符号
+  if (/\^/.test(t) && /[a-zA-Z0-9]/.test(t)) return true      // 含上标
+  if (/[a-zA-Z0-9]\s*\/\s*[a-zA-Z0-9(]/.test(t) && /[∫∑√∏]|[a-zA-Z]_[a-zA-Z0-9]/.test(t)) return true
+  return false
+}
+
+module.exports = { toLatex, parseXml, mmlToLatex: mml, ommlToLatex: omml, extractMathml, extractOmml, htmlToLatex, isFormulaText }
