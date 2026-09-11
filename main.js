@@ -298,7 +298,16 @@ function maybeAddRich(fmt) {
   if (!latex) {
     if (rtf.length > 300 || html.length > 150) {
       log('FORMULA-DIAG html[' + html.length + ']=' + html.slice(0, 500).replace(/\s+/g, ' '))
-      log('FORMULA-DIAG rtf[' + rtf.length + ']=' + rtf.slice(0, 1200).replace(/\s+/g, ' '))
+      // RTF 中定位公式相关的关键标记及其上下文（比无脑取开头更有用）
+      const keys = ['oMath', 'moMath', '\\pict', 'wmetafile', 'emfblip', 'pngblip', 'jpegblip',
+        '\\object', '\\fldinst', 'EQ ', 'mml', '\\mmath', 'ole']
+      const parts = []
+      for (const k of keys) {
+        const i = rtf.indexOf(k)
+        if (i >= 0) parts.push('[' + k + '@' + i + '] ' + rtf.slice(Math.max(0, i - 40), i + 260).replace(/\s+/g, ' '))
+      }
+      log('FORMULA-DIAG rtfHints=' + (parts.join(' ||| ') || '(none)'))
+      log('FORMULA-DIAG rtfTail=' + rtf.slice(-700).replace(/\s+/g, ' '))
       log('FORMULA-DIAG plain=' + text.slice(0, 200).replace(/\s+/g, ' '))
     }
   } else {
