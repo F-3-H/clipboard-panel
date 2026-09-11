@@ -12,6 +12,8 @@ const path = require('path')
 const fs = require('fs')
 const fsp = fs.promises
 const crypto = require('crypto')
+const os = require('os')
+const { execFile } = require('child_process')
 const { pathToFileURL } = require('url')
 
 const APP_NAME = 'clipboard-panel'
@@ -162,6 +164,45 @@ let lastImgHash = null
 let polling = false
 
 const MAX_RICH = 400 * 1024   // 富文本单条上限，避免历史文件过大
+const MAX_RTF = 900 * 1024    // RTF 上限（超限则丢弃，避免写入无效 RTF）
+
+// ---- 原生剪贴板（RTF 等 Chromium 读不到的格式，靠系统 PowerShell + .NET 读写）----
+const PS_EXE = 'powershell.exe'
+const PS_READ = path.join(__dirname, 'scripts', 'clip-read.ps1')
+const PS_WRITE = path.join(__dirname, 'scripts', 'clip-write.ps1')
+
+function runPowerShell(args, timeout = 8000) {
+  return new Promise((resolve) => {
+    try {
+      execFile(PS_EXE, ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', ...args],
+        { timeout, windowsHide: true },
+        (err, stdout, stderr) => resolve({ err, stderr: String(stderr || '') }))
+    } catch (e) { resolve({ err: e, stderr: String(e && e.message || e) }) }
+  })
+}
+
+// 读取系统剪贴板原生格式（RTF / HTML / 纯文本）
+async function readClipboardNative() {
+  const outFile = path.join(os.tmpdir(), 'clip-panel-read-' + process.pid + '-' + Date.now() + '.json')
+  const r = await runPowerShell([PS_READ, '-OutFile', outFile])
+  if (r.err) { log('native read ps err: ' + (r.stderr || r.err.message)) }
+  try {
+    const txt = fs.readFileSync(outFile, 'utf8')
+    try { fs.unlinkSync(outFile) } catch {}
+    const obj = JSON.parse(txt)
+    return obj && obj.ok ? obj : null
+  } catch { return null }
+}
+
+// 把原生格式写回系统剪贴板（Word 会优先采用 RTF → 得到"可编辑公式"）
+async function writeClipboardNative(payload) {
+  const inFile = path.join(os.tmpdir(), 'clip-panel-write-' + process.pid + '-' + Date.now() + '.json')
+  try { fs.writeFileSync(inFile, JSON.stringify(payload), 'utf8') } catch { return false }
+  const r = await runPowerShell([PS_WRITE, '-InFile', inFile])
+  try { fs.unlinkSync(inFile) } catch {}
+  if (r.err) { log('native write ps err: ' + (r.stderr || r.err.message)); return false }
+  return true
+}
 
 // 把一张 PNG 字节写入系统剪贴板（Electron 44 用 ClipboardItem）
 async function writeImageToClipboard(pngBuffer) {
@@ -241,7 +282,8 @@ async function writeRichToClipboard(entry) {
 function maybeAddRich(fmt) {
   const plain = fmt.plain || ''
   const html = (fmt.html || '').slice(0, MAX_RICH)
-  const rtf = (fmt.rtf || '').slice(0, MAX_RICH)
+  const rtfRaw = fmt.rtf || ''
+  const rtf = (rtfRaw && rtfRaw.length <= MAX_RTF) ? rtfRaw : ''
   const mathml = (fmt.mathml || '').slice(0, MAX_RICH)
   // 纯文本用 HTML 兜底（例如只提供 html 的复制源）
   const text = plain || (html ? stripHtml(html) : '')
@@ -270,10 +312,17 @@ async function pollClipboard() {
       if ((fmt.plain || fmt.html) && (fmt.plain !== lastText || htmlHash !== lastHtmlHash)) {
         lastText = fmt.plain
         lastHtmlHash = htmlHash
-        log('clip: TEXT len=' + (fmt.plain || '').length + ' html=' + (fmt.html || '').length +
-            ((/<math[\s>]/i.test(fmt.html || '') || fmt.mathml) ? ' [含公式]' : '') +
-            ' :: ' + (fmt.plain || '').slice(0, 30))
-        maybeAddRich(fmt)
+        // 再抓一次系统原生格式：RTF（Word 公式的"可编辑"载体，Chromium 读不到）
+        let nat = null
+        try { nat = await readClipboardNative() } catch {}
+        const rtfRaw = (nat && nat.rtf) ? nat.rtf : ''
+        const rtf = (rtfRaw && rtfRaw.length <= MAX_RTF) ? rtfRaw : ''
+        const html = (fmt.html || (nat && nat.html) || '').slice(0, MAX_RICH)
+        const plain = fmt.plain || (nat && nat.text) || ''
+        log('clip: TEXT len=' + plain.length + ' html=' + html.length + (rtf ? ' rtf=' + rtf.length : '') +
+            ((/<math[\s>]/i.test(html) || fmt.mathml) ? ' [含公式]' : '') +
+            ' :: ' + plain.slice(0, 30))
+        maybeAddRich({ plain, html, rtf, mathml: fmt.mathml })
       }
     } catch (e) { log('clip text err: ' + (e && e.message || e)) }
 
@@ -615,8 +664,13 @@ function registerIpc() {
     if (!item) return false
     try {
       if (item.type === 'text') {
-        // 含富文本/公式时按多格式写回，Word 等可还原成公式；否则纯文本
-        if (item.html || item.rtf || item.mathml) await writeRichToClipboard(item)
+        // 优先用系统原生剪贴板写回 RTF/HTML：Word 会采用 RTF，从而得到"可编辑公式"
+        if (item.rtf || item.html) {
+          const ok = await writeClipboardNative({ text: item.text || '', rtf: item.rtf || '', html: item.html || '' })
+          if (ok) return true
+          log('native write failed, fallback to clipboard API')
+        }
+        if (item.html || item.mathml) await writeRichToClipboard(item)
         else await clipboard.writeText(item.text)
       } else if (item.type === 'image') {
         const f = path.join(imagesDir, item.hash + '.png')
