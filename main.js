@@ -140,12 +140,41 @@ function maybeAddText(text) {
   addItem({ id: uid(), type: 'text', text, pinned: false, time: Date.now() })
 }
 
-function maybeAddImage(hash, png) {
+function maybeAddImage(hash, png, meta) {
   if (history.length && history[0].type === 'image' && history[0].hash === hash) return
   ensureDir(imagesDir)
   const file = path.join(imagesDir, hash + '.png')
   if (!fs.existsSync(file)) fs.writeFileSync(file, png)
-  addItem({ id: uid(), type: 'image', hash, pinned: false, time: Date.now() })
+  addItem(Object.assign({ id: uid(), type: 'image', hash, pinned: false, time: Date.now() }, meta || {}))
+}
+
+// 提取"公式图片"：WPS 等把公式当图片放进剪贴板（RTF 内嵌 PNG，或 HTML 引用本地图片文件）
+function extractFormulaImagePng(html, rtf) {
+  try {
+    const s = String(rtf || '')
+    const idx = s.indexOf('\\pngblip')
+    if (idx >= 0) {
+      const seg = s.slice(idx, idx + 6 * 1024 * 1024)
+      const m = /([0-9a-fA-F]{400,})/.exec(seg)
+      if (m) {
+        const buf = Buffer.from(m[1], 'hex')
+        if (buf.length > 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return buf
+      }
+    }
+  } catch {}
+  try {
+    const m = /<img[^>]+src=["']file:\/\/([^"']+)["']/i.exec(String(html || ''))
+    if (m) {
+      let p = m[1]
+      try { p = decodeURIComponent(p) } catch {}
+      p = p.replace(/^\/+/, '')
+      if (/^[a-zA-Z]:/.test(p)) {
+        const f = p.replace(/\//g, '\\')
+        if (fs.existsSync(f)) return fs.readFileSync(f)
+      }
+    }
+  } catch {}
+  return null
 }
 
 function maybeAddFileImage(filePath) {
@@ -323,6 +352,7 @@ function maybeAddRich(fmt) {
     formula: hasFormula,
     pinned: false, time: Date.now()
   })
+  return !!latex
 }
 
 async function pollClipboard() {
@@ -346,7 +376,15 @@ async function pollClipboard() {
         log('clip: TEXT len=' + plain.length + ' html=' + html.length + (rtf ? ' rtf=' + rtf.length : '') +
             ((/<math[\s>]/i.test(html) || fmt.mathml) ? ' [含公式]' : '') +
             ' :: ' + plain.slice(0, 30))
-        maybeAddRich({ plain, html, rtf, mathml: fmt.mathml })
+        const latexOk = maybeAddRich({ plain, html, rtf, mathml: fmt.mathml })
+        // 公式结构转不出 LaTeX 时（如 WPS 只给图片），把公式图片保存下来，至少可查看/留档
+        if (!latexOk) {
+          const png = extractFormulaImagePng(html, rtf)
+          if (png) {
+            log('formula image extracted: ' + png.length + ' bytes')
+            maybeAddImage(sha256(png), png, { name: '公式图片', formulaImage: true })
+          }
+        }
       }
     } catch (e) { log('clip text err: ' + (e && e.message || e)) }
 

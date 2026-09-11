@@ -338,14 +338,16 @@ function renderClipboard() {
       const fresh = now - it.time < 20000   // 最近 20 秒内剪切的项高亮
       const pin = it.pinned ? '<span class="pin-badge">📌 已置顶</span>' : ''
       const tags = (it.tags || []).map((tag) => `<span class="tag-mini" style="background:${tagColor(tag)};color:#fff">${escapeHtml(tag)}</span>`).join('')
-      const richBadge = it.formula ? '<span class="rich-badge formula">∑ 公式</span>'
-        : (it.rich ? '<span class="rich-badge">富文本</span>' : '')
+      const richBadge = it.formulaImage ? '<span class="rich-badge">公式图片</span>'
+        : (it.formula ? '<span class="rich-badge formula">∑ 公式</span>'
+          : (it.rich ? '<span class="rich-badge">富文本</span>' : ''))
       let body = ''
       if (it.type === 'text') {
         body = `<div class="item-text">${escapeHtml(it.text)}</div>`
         if (it.latex) body += `<div class="item-latex">${escapeHtml(it.latex)}</div>`
       } else if (it.type === 'image') {
-        body = `<div class="item-name">剪贴板图片</div>`
+        body = `<div class="item-name">${it.formulaImage ? '∑ 公式图片' : '剪贴板图片'}</div>` +
+          (it.formulaImage ? '<div class="item-path">来源仅提供图片，无法转换为公式</div>' : '')
       } else {
         body = `<div class="item-name">🖼 ${escapeHtml(it.name)}</div><div class="item-path">${escapeHtml(it.path)}</div>`
       }
