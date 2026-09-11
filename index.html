@@ -34,7 +34,7 @@
       <div id="tagbar" class="tagbar"></div>
       <div class="clip-tools">
         <input id="search" type="text" placeholder="搜索剪贴历史…" autocomplete="off">
-        <button id="btnClear" class="ghost" title="清空记录（保留置顶项）">清空</button>
+        <button id="btnClear" class="ghost" title="清空未标记记录（置顶与标签项保留）">清空</button>
       </div>
       <div id="clipList" class="list"></div>
       <div class="statusbar"><span id="clipStatus"></span></div>
@@ -94,6 +94,7 @@
     <button class="theme-btn" data-theme="paper"><span class="tdot" style="background:#1a1a1a"></span>手账</button>
     <button class="theme-btn" data-theme="news"><span class="tdot" style="background:#0f3b3b"></span>报刊</button>
     <button class="theme-btn" data-theme="bubble"><span class="tdot" style="background:#F0925A"></span>气泡</button>
+    <button class="theme-btn" data-theme="oil"><span class="tdot" style="background:#c0392b"></span>油画</button>
   </div>
   <div class="pop-row"><span>面板透明度</span>
     <input type="range" id="opacityRange" min="0.3" max="1" step="0.05" value="1" title="调整面板透明度">
@@ -106,8 +107,8 @@
       <button data-w="1280" data-h="860">大</button>
     </div>
   </div>
-  <div class="pop-row"><button id="btnClearAll" class="danger">清空全部剪贴记录</button></div>
-  <div class="pop-foot">剪贴面板 v1.3 · 支持多种风格切换</div>
+  <div class="pop-row"><button id="btnClearAll" class="danger">清空未标记记录</button></div>
+  <div class="pop-foot">剪贴面板 v1.1 · 支持多种风格切换</div>
 </div>
 
 <!-- ============ 标签编辑弹层 ============ -->

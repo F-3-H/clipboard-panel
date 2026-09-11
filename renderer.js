@@ -338,6 +338,8 @@ function renderClipboard() {
       const fresh = now - it.time < 20000   // 最近 20 秒内剪切的项高亮
       const pin = it.pinned ? '<span class="pin-badge">📌 已置顶</span>' : ''
       const tags = (it.tags || []).map((tag) => `<span class="tag-mini" style="background:${tagColor(tag)};color:#fff">${escapeHtml(tag)}</span>`).join('')
+      const richBadge = it.formula ? '<span class="rich-badge formula">∑ 公式</span>'
+        : (it.rich ? '<span class="rich-badge">富文本</span>' : '')
       let body = ''
       if (it.type === 'text') {
         body = `<div class="item-text">${escapeHtml(it.text)}</div>`
@@ -352,7 +354,7 @@ function renderClipboard() {
       const drag = it.type === 'image' ? ' draggable="true"' : ''
       return `<div class="item${it.pinned ? ' pinned' : ''}${fresh ? ' fresh' : ''}" data-id="${it.id}" data-type="${it.type}"${drag}>
         ${thumb}
-        <div class="item-body">${body}${tags ? `<div class="item-tags">${tags}</div>` : ''}<div class="item-meta">${pin}<span>${t}</span></div></div>
+        <div class="item-body">${body}${(richBadge || tags) ? `<div class="item-tags">${richBadge}${tags}</div>` : ''}<div class="item-meta">${pin}<span>${t}</span></div></div>
         <div class="item-actions">
           <button class="mini-btn" data-act="tag" title="标注标签">🏷</button>
           <button class="mini-btn" data-act="copy" title="复制回剪贴板">⧉</button>
@@ -681,11 +683,11 @@ async function handleDrop(e) {
 
 // ---------------------------------------------------------------- toolbar / window
 $('#btnClear').addEventListener('click', async () => {
-  try { await api.clearHistory(true); toast('已清空（置顶项保留）') } catch (err) { showError(err) }
+  try { await api.clearHistory(); toast('已清空未标记记录（置顶 / 标签项已保留）') } catch (err) { showError(err) }
 })
 $('#btnClearAll').addEventListener('click', async () => {
-  if (!confirm('确定清空全部剪贴记录吗？（置顶项也会被清除）')) return
-  try { await api.clearHistory(false); els.popover.classList.add('hidden'); toast('已清空全部记录') } catch (err) { showError(err) }
+  if (!confirm('清空所有「未标记」的剪贴记录？\n\n置顶项和带标签的记录会保留，如需删除请单独删除。')) return
+  try { await api.clearHistory(); els.popover.classList.add('hidden'); toast('已清空未标记记录（置顶 / 标签项已保留）') } catch (err) { showError(err) }
 })
 $('#btnAddFolder').addEventListener('click', async () => {
   try { await api.addAlbumFolder(); toast('已添加文件夹') } catch (err) { showError(err) }

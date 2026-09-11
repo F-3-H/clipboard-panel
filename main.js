@@ -154,15 +154,46 @@ function maybeAddFileImage(filePath) {
 // ---------------------------------------------------------------- clipboard watcher
 // 注意：Electron 44 的 clipboard 是全新的异步 W3C API（readText/writeText/read/write/has 均返回 Promise，
 // 没有 readImage/availableFormats/readBuffer）。这里全部用新 API 实现。
+// 为了让 Word 公式等富文本粘贴不失真，除了纯文本，还保存 HTML / RTF / MathML 格式，
+// 复制回剪贴板时按多格式写回，Word/WPS 会优先使用 HTML（其中含公式的 MathML/OMML）。
 let lastText = ''
+let lastHtmlHash = ''
 let lastImgHash = null
 let polling = false
+
+const MAX_RICH = 400 * 1024   // 富文本单条上限，避免历史文件过大
 
 // 把一张 PNG 字节写入系统剪贴板（Electron 44 用 ClipboardItem）
 async function writeImageToClipboard(pngBuffer) {
   const blob = new Blob([pngBuffer], { type: 'image/png' })
   const item = new ClipboardItem({ 'image/png': blob })
   await clipboard.write([item])
+}
+
+// 从剪贴板读出全部文本类格式（纯文本 / HTML / RTF / MathML）
+async function readClipboardFormats() {
+  const out = { plain: '', html: '', rtf: '', mathml: '' }
+  try {
+    const items = await clipboard.read()
+    for (const item of items) {
+      const types = (item && item.types) || []
+      for (const ty of types) {
+        const t = String(ty).toLowerCase()
+        try {
+          if (t === 'text/plain' && !out.plain) {
+            out.plain = await (await item.getType(ty)).text()
+          } else if (t === 'text/html' && !out.html) {
+            out.html = await (await item.getType(ty)).text()
+          } else if ((t === 'text/rtf' || t === 'application/rtf') && !out.rtf) {
+            out.rtf = await (await item.getType(ty)).text()
+          } else if ((t === 'text/mathml' || t === 'application/mathml+xml' || t === 'mathml') && !out.mathml) {
+            out.mathml = await (await item.getType(ty)).text()
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+  return out
 }
 
 // 从剪贴板读出一张图片的 PNG 字节（若有）；遍历所有 item 的 MIME 类型找 image/*
@@ -184,19 +215,65 @@ async function readClipboardImagePng() {
   return null
 }
 
+function stripHtml(s) {
+  return String(s).replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// 把富文本（可能含公式）写回剪贴板：同时写入多种格式，确保 Word 等能还原成公式
+async function writeRichToClipboard(entry) {
+  const plain = entry.text || (entry.html ? stripHtml(entry.html) : '')
+  let html = entry.html || ''
+  // 只有 MathML 时，包装成 HTML，便于 Word 识别为公式
+  if (!html && entry.mathml) {
+    html = '<html><head><meta charset="utf-8"></head><body>' + entry.mathml + '</body></html>'
+  }
+  const data = {}
+  if (plain) data['text/plain'] = new Blob([plain], { type: 'text/plain' })
+  if (html) data['text/html'] = new Blob([html], { type: 'text/html' })
+  if (entry.rtf) data['text/rtf'] = new Blob([entry.rtf], { type: 'text/rtf' })
+  if (entry.mathml) data['text/mathml'] = new Blob([entry.mathml], { type: 'text/mathml' })
+  if (!Object.keys(data).length) return false
+  await clipboard.write([new ClipboardItem(data)])
+  return true
+}
+
+// 记录一条文本/富文本剪贴项（含公式信息）
+function maybeAddRich(fmt) {
+  const plain = fmt.plain || ''
+  const html = (fmt.html || '').slice(0, MAX_RICH)
+  const rtf = (fmt.rtf || '').slice(0, MAX_RICH)
+  const mathml = (fmt.mathml || '').slice(0, MAX_RICH)
+  // 纯文本用 HTML 兜底（例如只提供 html 的复制源）
+  const text = plain || (html ? stripHtml(html) : '')
+  if (!text && !html && !mathml) return
+  if (history.length && history[0].type === 'text' && history[0].text === text && (history[0].html || '') === html) return
+  const hasFormula = /<math[\s>]/i.test(html) || /<m:oMath[\s>]/i.test(html) || !!mathml
+  addItem({
+    id: uid(), type: 'text', text,
+    html: html || undefined,
+    rtf: rtf || undefined,
+    mathml: mathml || undefined,
+    rich: !!(html || rtf || mathml),
+    formula: hasFormula,
+    pinned: false, time: Date.now()
+  })
+}
+
 async function pollClipboard() {
   if (polling) return
   polling = true
   try {
-    // ---- 文本检测（独立，永不因其它错误失败） ----
+    // ---- 文本 / 富文本检测（独立，永不因其它错误失败） ----
     try {
-      const text = await clipboard.readText()
-      if (text && text !== lastText) {
-        lastText = text
-        log('clip: TEXT len=' + text.length + ' :: ' + text.slice(0, 40))
-        maybeAddText(text)
-      } else if (text) {
-        lastText = text // 相同文本同步基线，避免误判
+      const fmt = await readClipboardFormats()
+      const htmlHash = fmt.html ? sha256(Buffer.from(fmt.html, 'utf8')).slice(0, 12) : ''
+      if ((fmt.plain || fmt.html) && (fmt.plain !== lastText || htmlHash !== lastHtmlHash)) {
+        lastText = fmt.plain
+        lastHtmlHash = htmlHash
+        log('clip: TEXT len=' + (fmt.plain || '').length + ' html=' + (fmt.html || '').length +
+            ((/<math[\s>]/i.test(fmt.html || '') || fmt.mathml) ? ' [含公式]' : '') +
+            ' :: ' + (fmt.plain || '').slice(0, 30))
+        maybeAddRich(fmt)
       }
     } catch (e) { log('clip text err: ' + (e && e.message || e)) }
 
@@ -538,7 +615,9 @@ function registerIpc() {
     if (!item) return false
     try {
       if (item.type === 'text') {
-        await clipboard.writeText(item.text)
+        // 含富文本/公式时按多格式写回，Word 等可还原成公式；否则纯文本
+        if (item.html || item.rtf || item.mathml) await writeRichToClipboard(item)
+        else await clipboard.writeText(item.text)
       } else if (item.type === 'image') {
         const f = path.join(imagesDir, item.hash + '.png')
         if (fs.existsSync(f)) await writeImageToClipboard(fs.readFileSync(f))
@@ -612,11 +691,13 @@ function registerIpc() {
     return true
   })
 
-  ipcMain.handle('item:clear', (_e, keepPinned) => {
-    const kept = keepPinned ? history.filter(i => i.pinned) : []
+  ipcMain.handle('item:clear', () => {
+    // 置顶项、带标签项视为"特殊标记"，清空时一律保留（如需删除请单独删除）
+    const isSpecial = (i) => !!i.pinned || (Array.isArray(i.tags) && i.tags.length > 0)
+    const kept = history.filter(isSpecial)
     const used = new Set(kept.filter(i => i.type === 'image').map(i => i.hash))
     for (const item of history) {
-      if (item.type === 'image' && !used.has(item.hash)) {
+      if (!isSpecial(item) && item.type === 'image' && !used.has(item.hash)) {
         try { fs.unlinkSync(path.join(imagesDir, item.hash + '.png')) } catch {}
       }
     }

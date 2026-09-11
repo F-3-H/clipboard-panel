@@ -23,7 +23,7 @@ if (contextBridge && ipcRenderer) {
     copyItem: (id) => ipcRenderer.invoke('item:copy', id),
     setPin: (id, pinned) => ipcRenderer.invoke('item:pin', { id, pinned }),
     deleteItem: (id) => ipcRenderer.invoke('item:delete', id),
-    clearHistory: (keepPinned) => ipcRenderer.invoke('item:clear', !!keepPinned),
+    clearHistory: () => ipcRenderer.invoke('item:clear'),
     setTags: (id, tags) => ipcRenderer.invoke('item:set-tags', { id, tags }),
     deleteTag: (tag) => ipcRenderer.invoke('tag:delete', tag),
     setAlbumTags: (path, tags) => ipcRenderer.invoke('album:set-tags', { path, tags }),

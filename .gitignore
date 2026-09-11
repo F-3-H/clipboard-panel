@@ -15,6 +15,7 @@ boottest/
 boottest2/
 clip-test/
 probe/
+release/
 *.log
 debug.log
 shot-*.png

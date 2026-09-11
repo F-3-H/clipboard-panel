@@ -652,6 +652,94 @@ body[data-theme="bubble"] #collapsedBar { background: rgba(252, 238, 240, .95); 
 body[data-theme="bubble"] .popover, body[data-theme="bubble"] .tagpop { background: #fdf6ec; border-color: rgba(200,130,110,.35); }
 
 /* ============================================================
+   风格六：油画（暗色艺术）—— 深蓝黑底、金色光、朱红点缀、斑驳笔触
+   ============================================================ */
+body[data-theme="oil"] {
+  --ink: #f0e6d2;
+  --ink2: #c9b79c;
+  --ink3: #8a7c68;
+  --line: rgba(230, 200, 150, .16);
+  --card: rgba(26, 32, 46, .88);
+  --cream: #0e131c;
+  --accent: #e0a03c;
+  --accent-soft: rgba(224, 160, 60, .18);
+  --blue: #3f5f9c;
+  --yellow: #f0c060;
+  --red: #c0392b;
+  --purple: #6b4a8f;
+  --cyan: #2f7f8f;
+  --green: #4a7a5a;
+  --pink: #b5533f;
+  --fresh: linear-gradient(135deg, rgba(240, 192, 96, .22), rgba(192, 57, 43, .18));
+  --fresh-border: #d9a24a;
+  --gold: #f0c060;
+  --danger: #c0392b;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .55), 0 0 40px rgba(0, 0, 0, .35);
+  --radius: 12px;
+}
+/* 油画背景：深蓝黑 + 金色光柱 + 朱红斑块，模拟斑驳笔触 */
+body[data-theme="oil"] #app {
+  background:
+    radial-gradient(ellipse 60% 45% at 18% 12%, rgba(240, 200, 120, .22), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 78% 22%, rgba(192, 57, 43, .22), transparent 72%),
+    radial-gradient(ellipse 50% 40% at 62% 88%, rgba(63, 95, 156, .25), transparent 75%),
+    radial-gradient(circle at 30% 60%, rgba(224, 160, 60, .10) 0 60px, transparent 70px),
+    linear-gradient(150deg, #0e131c, #131a26 45%, #0b0f16);
+}
+body[data-theme="oil"] .bubble {
+  background: linear-gradient(160deg, rgba(30, 38, 54, .92), rgba(18, 23, 34, .94));
+  border: 1.5px solid rgba(224, 160, 60, .45);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .55), inset 0 0 40px rgba(0, 0, 0, .35);
+}
+body[data-theme="oil"] .bubble-title { color: #f2e3c2; text-shadow: 0 0 12px rgba(224, 160, 60, .35); }
+body[data-theme="oil"] .bubble-title::before { background: var(--red); border-color: rgba(240, 192, 96, .6); }
+body[data-theme="oil"] #pane-album .bubble-title::before { background: var(--blue); }
+body[data-theme="oil"] .bubble-count { background: rgba(224, 160, 60, .18); border: 1px solid rgba(240, 192, 96, .5); color: #f0c060; }
+body[data-theme="oil"] #titlebar { background: rgba(14, 19, 28, .9); border-bottom: 1.5px solid rgba(224, 160, 60, .35); }
+body[data-theme="oil"] .brand { color: #f2e3c2; }
+body[data-theme="oil"] .tb-btn { color: var(--ink2); }
+body[data-theme="oil"] .tb-btn:hover { background: rgba(224, 160, 60, .22); color: #f7e9c8; border-color: rgba(240, 192, 96, .6); }
+body[data-theme="oil"] .collapse-bar { background: rgba(224, 160, 60, .14); border-color: rgba(240, 192, 96, .55); color: #f2d79b; }
+body[data-theme="oil"] .collapse-bar:hover { background: var(--red); color: #fff; }
+body[data-theme="oil"] .item {
+  background: linear-gradient(150deg, rgba(38, 46, 62, .9), rgba(24, 30, 42, .92));
+  border: 1px solid rgba(224, 160, 60, .22);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, .3);
+}
+body[data-theme="oil"] .item:hover { border-color: rgba(240, 192, 96, .6); box-shadow: 0 0 18px rgba(224, 160, 60, .18), inset 0 0 24px rgba(0, 0, 0, .3); }
+body[data-theme="oil"] .item.fresh { background: linear-gradient(150deg, rgba(92, 70, 30, .55), rgba(80, 34, 26, .5)); border-color: #d9a24a; }
+body[data-theme="oil"] .item-text { color: #f0e6d2; }
+body[data-theme="oil"] .item-meta { color: #a8946f; }
+body[data-theme="oil"] button.ghost { background: rgba(224, 160, 60, .12); border-color: rgba(240, 192, 96, .45); color: #eddcbb; }
+body[data-theme="oil"] button.ghost:hover { background: var(--accent); color: #1a1206; }
+body[data-theme="oil"] #search { background: rgba(12, 16, 24, .8); border-color: rgba(240, 192, 96, .35); color: #f0e6d2; }
+body[data-theme="oil"] #search::placeholder { color: #7d6f5b; }
+body[data-theme="oil"] .mini-btn { color: #c9b79c; }
+body[data-theme="oil"] .mini-btn:hover { background: rgba(224, 160, 60, .3); color: #f7e9c8; border-color: rgba(240, 192, 96, .6); }
+body[data-theme="oil"] .mini-btn.del:hover { background: var(--red); color: #fff; }
+body[data-theme="oil"] .tagbar-chip { background: rgba(224, 160, 60, .12); border-color: rgba(240, 192, 96, .4); color: #e5d3ae; }
+body[data-theme="oil"] .tagbar-chip.active { background: var(--accent); color: #1a1206; }
+body[data-theme="oil"] .album-item { border-color: rgba(224, 160, 60, .35); background: #0d1219; }
+body[data-theme="oil"] .album-item:hover { border-color: var(--gold); box-shadow: 0 0 18px rgba(224, 160, 60, .25); }
+body[data-theme="oil"] .ov button { background: rgba(240, 192, 96, .9); color: #1a1206; border-color: #1a1206; }
+body[data-theme="oil"] .statusbar { color: #8a7c68; border-top-color: rgba(230, 200, 150, .14); }
+body[data-theme="oil"] #splitter::after { background: rgba(230, 200, 150, .25); }
+body[data-theme="oil"] #splitter:hover::after, body[data-theme="oil"] #splitter.dragging::after { background: var(--gold); }
+body[data-theme="oil"] #collapsedBar { background: rgba(14, 19, 28, .95); border-bottom: 1.5px solid rgba(224, 160, 60, .35); }
+body[data-theme="oil"] .popover, body[data-theme="oil"] .tagpop { background: #141b26; border-color: rgba(240, 192, 96, .45); }
+body[data-theme="oil"] .pop-foot { color: #8a7c68; }
+body[data-theme="oil"] #toast { background: #1b2330; border-color: var(--gold); color: #f2e3c2; }
+
+/* 富文本 / 公式 徽章 */
+.rich-badge {
+  font-size: 10px; padding: 1px 7px; border-radius: 8px; font-weight: 700;
+  background: rgba(120, 130, 160, .16); color: var(--ink2); border: 1px solid var(--line);
+}
+.rich-badge.formula { background: rgba(79, 124, 255, .16); color: var(--blue); border-color: rgba(79, 124, 255, .35); }
+body[data-theme="oil"] .rich-badge { background: rgba(224, 160, 60, .16); color: #e5d3ae; border-color: rgba(240, 192, 96, .4); }
+body[data-theme="oil"] .rich-badge.formula { background: rgba(63, 95, 156, .35); color: #cfe0ff; border-color: rgba(120, 160, 240, .5); }
+
+/* ============================================================
    贴边隐藏：右侧细把手
    ============================================================ */
 #dockHandle {
