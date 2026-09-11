@@ -294,12 +294,11 @@ function maybeAddRich(fmt) {
   let latex = ''
   try { latex = toLatex({ html, rtf, mathml }) } catch (e) { log('latex conv err: ' + (e && e.message || e)) }
   const hasFormula = !!latex || /<math[\s>]/i.test(html) || /<m:oMath[\s>]/i.test(html) || !!mathml
-  // 诊断：疑似公式但没转出 LaTeX 时，记录剪贴板原始内容片段，便于定位取值方式
+  // 诊断：没有转出 LaTeX 时，记录剪贴板原始内容片段，便于定位公式的表示方式
   if (!latex) {
-    const suspect = /<math|<m:oMath|<sup|<sub|<table|moMath|∑|∫|√|\\frac/i.test(html + rtf)
-    if (suspect) {
-      log('FORMULA-DIAG html[' + html.length + ']=' + html.slice(0, 700).replace(/\s+/g, ' '))
-      log('FORMULA-DIAG rtf[' + rtf.length + ']=' + rtf.slice(0, 700).replace(/\s+/g, ' '))
+    if (rtf.length > 300 || html.length > 150) {
+      log('FORMULA-DIAG html[' + html.length + ']=' + html.slice(0, 500).replace(/\s+/g, ' '))
+      log('FORMULA-DIAG rtf[' + rtf.length + ']=' + rtf.slice(0, 1200).replace(/\s+/g, ' '))
       log('FORMULA-DIAG plain=' + text.slice(0, 200).replace(/\s+/g, ' '))
     }
   } else {

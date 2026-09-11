@@ -271,10 +271,11 @@ function extractMathml(html) {
   return m ? m[0] : ''
 }
 function extractOmml(xmlish) {
-  const m = /<m:oMath[\s>][\s\S]*?<\/m:oMath>/i.exec(String(xmlish || ''))
+  const s = String(xmlish || '')
+  let m = /<(?:m:)?oMath\b[\s\S]*?<\/(?:m:)?oMath>/i.exec(s)
   if (m) return m[0]
-  const m2 = /<oMath[\s>][\s\S]*?<\/oMath>/i.exec(String(xmlish || ''))
-  return m2 ? m2[0] : ''
+  m = /<(?:m:)?oMathPara\b[\s\S]*?<\/(?:m:)?oMathPara>/i.exec(s)
+  return m ? m[0] : ''
 }
 
 function clean(latex) {

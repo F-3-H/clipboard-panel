@@ -1,5 +1,6 @@
 param([Parameter(Mandatory=$true)][string]$InFile)
 # 把原生格式（RTF / HTML / 纯文本）写回系统剪贴板；Word 会优先采用 RTF，从而得到"可编辑公式"
+# 注意：Office 等程序常会短暂占用剪贴板，这里带重试
 $ErrorActionPreference = 'Stop'
 try {
   Add-Type -AssemblyName System.Windows.Forms
@@ -7,11 +8,25 @@ try {
   $do = New-Object System.Windows.Forms.DataObject
   $any = $false
   if ($json.text -and [string]$json.text -ne '') { $do.SetData('UnicodeText', [string]$json.text); $any = $true }
-  if ($json.rtf -and [string]$json.rtf -ne '') { $do.SetData('Rich Text Format', [string]$json.rtf); $any = $true }
+  if ($json.rtf  -and [string]$json.rtf  -ne '') { $do.SetData('Rich Text Format', [string]$json.rtf); $any = $true }
   if ($json.html -and [string]$json.html -ne '') { $do.SetData('HTML Format', [string]$json.html); $any = $true }
   if (-not $any) { exit 2 }
-  [System.Windows.Forms.Clipboard]::SetDataObject($do, $true)
-  exit 0
+
+  $ok = $false
+  $lastErr = ''
+  for ($i = 0; $i -lt 12 -and -not $ok; $i++) {
+    try {
+      # 重载：copy=true, retryTimes, retryDelay(ms) —— 剪贴板被占用时自动重试
+      [System.Windows.Forms.Clipboard]::SetDataObject($do, $true, 5, 120)
+      $ok = $true
+    } catch {
+      $lastErr = $_.Exception.Message
+      Start-Sleep -Milliseconds 150
+    }
+  }
+  if ($ok) { exit 0 }
+  [Console]::Error.WriteLine('clipboard busy: ' + $lastErr)
+  exit 1
 } catch {
   [Console]::Error.WriteLine($_.Exception.Message)
   exit 1
