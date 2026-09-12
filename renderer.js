@@ -483,17 +483,17 @@ els.clipList.addEventListener('click', async (e) => {
     if (act === 'copy') {
       await api.copyItem(id)
       const it = S.history.find((x) => x.id === id)
-      if (it && it.latex) toast('已复制公式：Word 里 Alt+= 进公式编辑器，粘贴即可')
+      if (it && it.latex) toast('已复制公式语法：粘到 WPS/Word 后按 Ctrl+= 即转成公式')
       else if (it && (it.formula || it.rich)) toast('已复制富文本：粘到 Word 即为可编辑公式')
       else toast('已复制到剪贴板')
     }
     else if (act === 'word') {
       await api.copyWord(id)
-      toast('已复制 Word 公式格式：Alt+= 后直接粘贴即编译成公式')
+      toast('已复制 Word 公式格式：粘到 WPS/Word 后按 Ctrl+= 转成公式')
     }
     else if (act === 'latex') {
       await api.copyLatex(id)
-      toast('已复制 LaTeX（Word 需在「公式工具 → 转换」里选 LaTeX 模式）')
+      toast('已复制 LaTeX 源码')
     }
     else if (act === 'pin') {
       const willPin = !itemEl.classList.contains('pinned')

@@ -728,22 +728,19 @@ function registerIpc() {
     pausePoll = true
     try {
       if (item.type === 'text') {
-        const hasOmml = /oMath/i.test(item.rtf || '') || /oMath/i.test(item.html || '')
-        // 1) Word/WPS 公式编辑器来源（含 OMML 结构）：富文本写回 → 粘到 Word 是可编辑公式（已验证）
-        if (hasOmml && (item.rtf || item.html)) {
-          const ok = await writeClipboardNative({ text: item.text || '', rtf: item.rtf || '', html: item.html || '' })
-          if (ok) return true
-          log('native write failed, fallback to clipboard API')
-        }
-        // 2) 网页 / AI 聊天来源：转成 Word 原生 UnicodeMath，公式编辑器里直接粘贴即可编译
+        // 公式条目：只复制「纯文本公式语法」——WPS/Word 里粘贴后按 Ctrl+= / Alt+= 即可转成公式。
+        // 实测：WPS 能识别 UnicodeMath 线性格式（∑_(n=1)^n、c_n=(a)/(b)…）；
+        // 这里刻意不写富文本(RTF/HTML)，否则 WPS 会走富文本路径，导致无法转换、字号异常。
         if (item.latex) {
           const um = toUnicodeMath(item.latex)
-          if (um) { await clipboard.writeText(um); return true }
+          await clipboard.writeText(um || item.latex)
+          return true
         }
-        // 3) 其它富文本
+        // 非公式的富文本：保持富文本（RTF/HTML）写回
         if (item.rtf || item.html) {
           const ok = await writeClipboardNative({ text: item.text || '', rtf: item.rtf || '', html: item.html || '' })
           if (ok) return true
+          log('native write failed, fallback to clipboard API')
         }
         if (item.html || item.mathml) { await writeRichToClipboard(item); return true }
         await clipboard.writeText(item.text)
@@ -776,7 +773,6 @@ function registerIpc() {
     catch { return false }
     finally { setTimeout(() => { pausePoll = false }, 500) }
   })
-
   ipcMain.handle('item:pin', (_e, payload) => {
     const item = history.find(i => i.id === payload.id)
     if (!item) return false
