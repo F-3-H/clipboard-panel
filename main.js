@@ -763,22 +763,19 @@ function registerIpc() {
     pausePoll = true
     try {
       if (item.type === 'text') {
-        // 公式条目：只复制「纯文本公式语法」——WPS/Word 里粘贴后按 Ctrl+= / Alt+= 即可转成公式。
-        // 实测：WPS 能识别 UnicodeMath 线性格式（∑_(n=1)^n、c_n=(a)/(b)…）；
-        // 这里刻意不写富文本(RTF/HTML)，否则 WPS 会走富文本路径，导致无法转换、字号异常。
+        // 公式条目：只复制「纯文本公式语法」——WPS/Word 里粘贴后按 Ctrl+= / Alt+= 即可转成公式
         if (item.latex) {
           const um = toUnicodeMath(item.latex)
-          await clipboard.writeText(um || item.latex)
+          const out = um || item.latex
+          await clipboard.writeText(out)
+          lastText = out; lastHtmlHash = ''   // 同步基线，避免我们自己写的内容被再次记录
           return true
         }
-        // 非公式的富文本：保持富文本（RTF/HTML）写回
-        if (item.rtf || item.html) {
-          const ok = await writeClipboardNative({ text: item.text || '', rtf: item.rtf || '', html: item.html || '' })
-          if (ok) return true
-          log('native write failed, fallback to clipboard API')
-        }
-        if (item.html || item.mathml) { await writeRichToClipboard(item); return true }
-        await clipboard.writeText(item.text)
+        // 普通文本：一律写纯文本（最可靠，保证一定能粘贴出来）
+        const plainOut = item.text || ''
+        await clipboard.writeText(plainOut)
+        lastText = plainOut; lastHtmlHash = ''
+        return true
       } else if (item.type === 'image') {
         const f = path.join(imagesDir, item.hash + '.png')
         if (fs.existsSync(f)) await writeImageToClipboard(fs.readFileSync(f))
