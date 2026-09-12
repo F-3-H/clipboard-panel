@@ -361,7 +361,7 @@ function renderClipboard() {
         <div class="item-actions">
           <button class="mini-btn" data-act="tag" title="标注标签">🏷</button>
           <button class="mini-btn" data-act="copy" title="复制（富文本优先，粘到 Word 是可编辑公式）">⧉</button>
-          ${it.latex ? '<button class="mini-btn" data-act="word" title="复制 Word 公式（UnicodeMath，公式编辑器直接粘贴）">∑</button>' : ''}
+          ${it.latex ? '<button class="mini-btn" data-act="latex" title="复制 LaTeX 源码（对比测试用）">∑</button>' : ''}
           <button class="mini-btn${it.pinned ? ' pin-on' : ''}" data-act="pin" title="置顶/取消置顶">${it.pinned ? '★' : '☆'}</button>
           <button class="mini-btn del" data-act="del" title="删除">✕</button>
         </div>
@@ -483,17 +483,17 @@ els.clipList.addEventListener('click', async (e) => {
     if (act === 'copy') {
       await api.copyItem(id)
       const it = S.history.find((x) => x.id === id)
-      if (it && it.latex) toast('已复制公式语法：粘到 WPS/Word 后按 Ctrl+= 即转成公式')
+      if (it && it.latex) toast('已复制公式语法（Word 线性格式）：WPS 里粘贴后按 Ctrl+= 试转换')
       else if (it && (it.formula || it.rich)) toast('已复制富文本：粘到 Word 即为可编辑公式')
       else toast('已复制到剪贴板')
     }
     else if (act === 'word') {
       await api.copyWord(id)
-      toast('已复制 Word 公式格式：粘到 WPS/Word 后按 Ctrl+= 转成公式')
+      toast('已复制 Word 线性格式：粘贴后按 Ctrl+= 转换')
     }
     else if (act === 'latex') {
       await api.copyLatex(id)
-      toast('已复制 LaTeX 源码')
+      toast('已复制 LaTeX 源码：WPS 里粘贴后按 Ctrl+= 试试（用于对比）')
     }
     else if (act === 'pin') {
       const willPin = !itemEl.classList.contains('pinned')
