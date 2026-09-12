@@ -192,6 +192,7 @@ let lastText = ''
 let lastHtmlHash = ''
 let lastImgHash = null
 let polling = false
+let pausePoll = false      // 我们自己写剪贴板时暂停轮询，避免自己跟自己抢剪贴板
 
 const MAX_RICH = 400 * 1024   // 富文本单条上限，避免历史文件过大
 const MAX_RTF = 900 * 1024    // RTF 上限（超限则丢弃，避免写入无效 RTF）
@@ -356,7 +357,7 @@ function maybeAddRich(fmt) {
 }
 
 async function pollClipboard() {
-  if (polling) return
+  if (polling || pausePoll) return
   polling = true
   try {
     // ---- 文本 / 富文本检测（独立，永不因其它错误失败） ----
@@ -724,6 +725,7 @@ function registerIpc() {
   ipcMain.handle('item:copy', async (_e, id) => {
     const item = history.find(i => i.id === id)
     if (!item) return false
+    pausePoll = true
     try {
       if (item.type === 'text') {
         const hasOmml = /oMath/i.test(item.rtf || '') || /oMath/i.test(item.html || '')
@@ -754,18 +756,25 @@ function registerIpc() {
       }
       return true
     } catch (e) { log('copy err: ' + (e && e.message || e)); return false }
+    finally { setTimeout(() => { pausePoll = false }, 800) }
   })
 
   ipcMain.handle('item:copy-word', async (_e, id) => {
     const item = history.find(i => i.id === id)
     if (!item || !item.latex) return false
-    try { await clipboard.writeText(toUnicodeMath(item.latex)); return true } catch { return false }
+    pausePoll = true
+    try { await clipboard.writeText(toUnicodeMath(item.latex)); return true }
+    catch { return false }
+    finally { setTimeout(() => { pausePoll = false }, 500) }
   })
 
   ipcMain.handle('item:copy-latex', async (_e, id) => {
     const item = history.find(i => i.id === id)
     if (!item || !item.latex) return false
-    try { await clipboard.writeText(item.latex); return true } catch { return false }
+    pausePoll = true
+    try { await clipboard.writeText(item.latex); return true }
+    catch { return false }
+    finally { setTimeout(() => { pausePoll = false }, 500) }
   })
 
   ipcMain.handle('item:pin', (_e, payload) => {
