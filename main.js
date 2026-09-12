@@ -15,7 +15,7 @@ const crypto = require('crypto')
 const os = require('os')
 const { execFile } = require('child_process')
 const { pathToFileURL } = require('url')
-const { toLatex } = require('./latex')
+const { toLatex, toUnicodeMath } = require('./latex')
 
 const APP_NAME = 'clipboard-panel'
 // 数据目录：可用环境变量覆盖（便携模式 / 测试用）；默认存用户目录 AppData。
@@ -726,17 +726,24 @@ function registerIpc() {
     if (!item) return false
     try {
       if (item.type === 'text') {
-        // 优先富文本（RTF / HTML）：粘到 Word 直接是可编辑公式（实测有效）
-        if (item.rtf || item.html || item.mathml) {
-          if (item.rtf || item.html) {
-            const ok = await writeClipboardNative({ text: item.text || '', rtf: item.rtf || '', html: item.html || '' })
-            if (ok) return true
-            log('native write failed, fallback to clipboard API')
-          }
-          if (item.html || item.mathml) { await writeRichToClipboard(item); return true }
+        const hasOmml = /oMath/i.test(item.rtf || '') || /oMath/i.test(item.html || '')
+        // 1) Word/WPS 公式编辑器来源（含 OMML 结构）：富文本写回 → 粘到 Word 是可编辑公式（已验证）
+        if (hasOmml && (item.rtf || item.html)) {
+          const ok = await writeClipboardNative({ text: item.text || '', rtf: item.rtf || '', html: item.html || '' })
+          if (ok) return true
+          log('native write failed, fallback to clipboard API')
         }
-        // 没有富文本结构时退化为 LaTeX 文本
-        if (item.latex) { await clipboard.writeText(item.latex); return true }
+        // 2) 网页 / AI 聊天来源：转成 Word 原生 UnicodeMath，公式编辑器里直接粘贴即可编译
+        if (item.latex) {
+          const um = toUnicodeMath(item.latex)
+          if (um) { await clipboard.writeText(um); return true }
+        }
+        // 3) 其它富文本
+        if (item.rtf || item.html) {
+          const ok = await writeClipboardNative({ text: item.text || '', rtf: item.rtf || '', html: item.html || '' })
+          if (ok) return true
+        }
+        if (item.html || item.mathml) { await writeRichToClipboard(item); return true }
         await clipboard.writeText(item.text)
       } else if (item.type === 'image') {
         const f = path.join(imagesDir, item.hash + '.png')
@@ -747,6 +754,12 @@ function registerIpc() {
       }
       return true
     } catch (e) { log('copy err: ' + (e && e.message || e)); return false }
+  })
+
+  ipcMain.handle('item:copy-word', async (_e, id) => {
+    const item = history.find(i => i.id === id)
+    if (!item || !item.latex) return false
+    try { await clipboard.writeText(toUnicodeMath(item.latex)); return true } catch { return false }
   })
 
   ipcMain.handle('item:copy-latex', async (_e, id) => {

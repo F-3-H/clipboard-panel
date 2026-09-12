@@ -481,7 +481,164 @@ function toLatex({ html, rtf, mathml, plain }) {
   return ''
 }
 
+// ============================================================
+// LaTeX -> UnicodeMath（Word / WPS 公式编辑器的原生线性格式）
+// Word 公式编辑器默认就是 UnicodeMath 模式，粘贴即可编译成公式。
+// ============================================================
+const UCMD = {
+  '\\times': '×', '\\div': '÷', '\\pm': '±', '\\mp': '∓', '\\cdot': '·', '\\ast': '∗', '\\circ': '∘',
+  '\\le': '≤', '\\leq': '≤', '\\ge': '≥', '\\geq': '≥', '\\ne': '≠', '\\neq': '≠',
+  '\\approx': '≈', '\\equiv': '≡', '\\sim': '~', '\\simeq': '≃', '\\cong': '≅', '\\propto': '∝',
+  '\\ll': '≪', '\\gg': '≫', '\\infty': '∞', '\\partial': '∂', '\\nabla': '∇',
+  '\\to': '→', '\\rightarrow': '→', '\\leftarrow': '←', '\\leftrightarrow': '↔',
+  '\\Rightarrow': '⇒', '\\Leftarrow': '⇐', '\\Leftrightarrow': '⇔', '\\mapsto': '↦',
+  '\\uparrow': '↑', '\\downarrow': '↓',
+  '\\in': '∈', '\\notin': '∉', '\\ni': '∋', '\\subset': '⊂', '\\subseteq': '⊆',
+  '\\supset': '⊃', '\\supseteq': '⊇', '\\cup': '∪', '\\cap': '∩', '\\setminus': '∖', '\\emptyset': '∅',
+  '\\forall': '∀', '\\exists': '∃', '\\wedge': '∧', '\\vee': '∨', '\\neg': '¬', '\\oplus': '⊕',
+  '\\sum': '∑', '\\prod': '∏', '\\int': '∫', '\\iint': '∬', '\\iiint': '∭', '\\oint': '∮',
+  '\\angle': '∠', '\\perp': '⊥', '\\parallel': '∥', '\\cdots': '⋯', '\\dots': '…', '\\ldots': '…',
+  '\\vdots': '⋮', '\\ddots': '⋱', '\\prime': '′', '\\degree': '°',
+  '\\lfloor': '⌊', '\\rfloor': '⌋', '\\lceil': '⌈', '\\rceil': '⌉',
+  '\\langle': '⟨', '\\rangle': '⟩', '\\|': '‖',
+  '\\alpha': 'α', '\\beta': 'β', '\\gamma': 'γ', '\\delta': 'δ', '\\epsilon': 'ε', '\\varepsilon': 'ε',
+  '\\zeta': 'ζ', '\\eta': 'η', '\\theta': 'θ', '\\vartheta': 'ϑ', '\\iota': 'ι', '\\kappa': 'κ',
+  '\\lambda': 'λ', '\\mu': 'μ', '\\nu': 'ν', '\\xi': 'ξ', '\\pi': 'π', '\\varpi': 'ϖ',
+  '\\rho': 'ρ', '\\sigma': 'σ', '\\varsigma': 'ς', '\\tau': 'τ', '\\upsilon': 'υ',
+  '\\phi': 'φ', '\\varphi': 'φ', '\\chi': 'χ', '\\psi': 'ψ', '\\omega': 'ω',
+  '\\Gamma': 'Γ', '\\Delta': 'Δ', '\\Theta': 'Θ', '\\Lambda': 'Λ', '\\Xi': 'Ξ', '\\Pi': 'Π',
+  '\\Sigma': 'Σ', '\\Upsilon': 'Υ', '\\Phi': 'Φ', '\\Psi': 'Ψ', '\\Omega': 'Ω',
+  '\\mathbb{N}': 'ℕ', '\\mathbb{Z}': 'ℤ', '\\mathbb{Q}': 'ℚ', '\\mathbb{R}': 'ℝ', '\\mathbb{C}': 'ℂ'
+}
+const UCOMBINE = {
+  '\\overline': '\u0305', '\\bar': '\u0304', '\\hat': '\u0302', '\\widehat': '\u0302',
+  '\\vec': '\u20D7', '\\dot': '\u0307', '\\ddot': '\u0308', '\\tilde': '\u0303',
+  '\\underline': '\u0332', '\\check': '\u030C', '\\breve': '\u0306'
+}
+
+function latexToUnicodeMath(src) {
+  const s = String(src || '')
+  let i = 0
+  try {
+    return group().replace(/\s+/g, ' ').trim()
+  } catch { return s }
+
+  function readRawArg() {
+    if (s[i] === '{') {
+      let depth = 0, start = ++i
+      while (i < s.length) {
+        if (s[i] === '{') depth++
+        else if (s[i] === '}') { if (depth === 0) break; depth-- }
+        i++
+      }
+      const out = s.slice(start, i); i++; return out
+    }
+    const c = s[i] || ''; i++; return c
+  }
+  function arg() {
+    if (s[i] === '{') { i++; return group(true) }
+    if (s[i] === '\\') {
+      const m = /^\\([a-zA-Z]+|.)/.exec(s.slice(i))
+      i += m[0].length
+      return cmd(m[1])
+    }
+    const c = s[i] || ''; i++; return c
+  }
+  function group(untilBrace) {
+    let out = ''
+    while (i < s.length) {
+      const c = s[i]
+      if (untilBrace && c === '}') { i++; break }
+      if (c === '{') { i++; out += group(true); continue }
+      if (c === '}') { i++; continue }
+      if (c === '\\') {
+        const m = /^\\([a-zA-Z]+|.)/.exec(s.slice(i))
+        i += m[0].length
+        out += cmd(m[1])
+        continue
+      }
+      if (c === '^' || c === '_') {
+        i++
+        const a = arg()
+        out += c + (/^[\u0000-\u007F]{1}$/.test(a) ? a : '(' + a + ')')
+        continue
+      }
+      if (c === '~') { out += ' '; i++; continue }
+      out += c; i++
+    }
+    return out
+  }
+  function env(name) {
+    const endTag = '\\end{' + name + '}'
+    const endIdx = s.indexOf(endTag, i)
+    const body = endIdx >= 0 ? s.slice(i, endIdx) : s.slice(i)
+    i = endIdx >= 0 ? endIdx + endTag.length : s.length
+    const rows = body.split(/\\\\/).map((r) => r.split('&').map((x) => {
+      const saved = i; i = 0
+      const conv = latexToUnicodeMath(x)
+      i = saved
+      return conv
+    }).join('&'))
+    const inner = rows.join('@')
+    if (name === 'cases') return '{█(' + inner + ')'
+    if (name === 'matrix') return '■(' + inner + ')'
+    if (name === 'pmatrix') return '(■(' + inner + '))'
+    if (name === 'bmatrix') return '[■(' + inner + ')]'
+    if (name === 'Bmatrix') return '{■(' + inner + ')}'
+    if (name === 'vmatrix') return '|■(' + inner + ')|'
+    return inner
+  }
+  function cmd(name) {
+    const key = '\\' + name
+    switch (name) {
+      case 'frac': case 'dfrac': case 'tfrac': {
+        const a = arg(); const b = arg()
+        return '(' + a + ')/(' + b + ')'
+      }
+      case 'sqrt': {
+        let n = null
+        if (s[i] === '[') { const j = s.indexOf(']', i); n = s.slice(i + 1, j); i = j + 1 }
+        const a = arg()
+        return n ? '√(' + n + '&' + a + ')' : '√(' + a + ')'
+      }
+      case 'binom': {
+        const a = arg(); const b = arg()
+        return '(' + a + '¦' + b + ')'
+      }
+      case 'left': case 'right': {
+        if (s[i] === '\\') {
+          const m = /^\\([a-zA-Z]+|.)/.exec(s.slice(i))
+          i += m[0].length
+          return UCMD['\\' + m[1]] || ''
+        }
+        const d = s[i] || '.'; i++
+        return d === '.' ? '' : d
+      }
+      case 'begin': return env(readRawArg())
+      case 'end': readRawArg(); return ''
+      case 'text': case 'textrm': case 'mathrm': case 'operatorname': case 'mbox': {
+        const a = arg()
+        return a
+      }
+      case 'mathbf': case 'boldsymbol': case 'bm': { return arg() }
+      case 'big': case 'Big': case 'bigg': case 'Bigg': case 'displaystyle': case 'textstyle':
+      case 'limits': case 'nolimits': case 'mathstrut': { return '' }
+      case ',': case ';': case ':': case '!': case ' ': case 'quad': case 'qquad': { return ' ' }
+      case '%': case '&': case '#': case '_': case '$': return name
+      case '{': return '{'
+      case '}': return '}'
+      case '\\': return ' '
+      default: break
+    }
+    if (UCOMBINE[key]) { const a = arg(); return a + UCOMBINE[key] }
+    if (UCMD[key]) return UCMD[key]
+    if (name.length === 1) return name        // \{ \% \_ 等
+    return name                                // 未知命令：去掉反斜杠，保留名字
+  }
+}
+
 module.exports = {
   toLatex, parseXml, mmlToLatex: mml, ommlToLatex: omml,
-  extractMathml, extractOmml, htmlToLatex, isFormulaText
+  extractMathml, extractOmml, htmlToLatex, isFormulaText,
+  toUnicodeMath: latexToUnicodeMath
 }
