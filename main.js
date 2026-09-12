@@ -15,7 +15,7 @@ const crypto = require('crypto')
 const os = require('os')
 const { execFile } = require('child_process')
 const { pathToFileURL } = require('url')
-const { toLatex, toUnicodeMath } = require('./latex')
+const { toLatex, toUnicodeMath, extractMathml } = require('./latex')
 
 const APP_NAME = 'clipboard-panel'
 // 数据目录：可用环境变量覆盖（便携模式 / 测试用）；默认存用户目录 AppData。
@@ -240,6 +240,41 @@ async function writeImageToClipboard(pngBuffer) {
   const blob = new Blob([pngBuffer], { type: 'image/png' })
   const item = new ClipboardItem({ 'image/png': blob })
   await clipboard.write([item])
+}
+
+// 用 Chromium 的 MathML 渲染引擎把公式渲染成高清 PNG（WPS 粘贴图片一定准确、不会变形或缩小）
+async function renderMathmlPng(mathml) {
+  if (!mathml || !/<\s*math/i.test(mathml)) return null
+  let w = null
+  try {
+    w = new BrowserWindow({
+      width: 900, height: 300, show: false, frame: false,
+      backgroundColor: '#ffffff',
+      webPreferences: { offscreen: false, contextIsolation: true }
+    })
+    const html = '<!doctype html><html><head><meta charset="utf-8"><style>' +
+      'html,body{margin:0;padding:18px;background:#ffffff}' +
+      'math{font-size:56px;color:#000000}' +
+      '</style></head><body>' + mathml + '</body></html>'
+    await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+    await new Promise(r => setTimeout(r, 700))
+    // 按内容尺寸裁剪
+    try {
+      const d = await w.webContents.executeJavaScript('({w: document.body.scrollWidth, h: document.body.scrollHeight})')
+      if (d && d.w > 0 && d.h > 0) {
+        w.setContentSize(Math.min(2400, Math.max(80, Math.ceil(d.w))), Math.min(900, Math.max(60, Math.ceil(d.h))))
+        await new Promise(r => setTimeout(r, 300))
+      }
+    } catch {}
+    const img = await w.webContents.capturePage()
+    if (!img || img.isEmpty()) return null
+    return img.toPNG()
+  } catch (e) {
+    log('render mathml err: ' + (e && e.message || e))
+    return null
+  } finally {
+    try { if (w) w.destroy() } catch {}
+  }
 }
 
 // 从剪贴板读出全部文本类格式（纯文本 / HTML / RTF / MathML）
@@ -754,6 +789,20 @@ function registerIpc() {
       return true
     } catch (e) { log('copy err: ' + (e && e.message || e)); return false }
     finally { setTimeout(() => { pausePoll = false }, 800) }
+  })
+
+  ipcMain.handle('item:copy-image', async (_e, id) => {
+    const item = history.find(i => i.id === id)
+    if (!item) return false
+    try {
+      let mathml = item.mathml || ''
+      if (!mathml && item.html) mathml = extractMathml(item.html)
+      if (!mathml) return false
+      const png = await renderMathmlPng(mathml)
+      if (!png) return false
+      await writeImageToClipboard(png)
+      return true
+    } catch (e) { log('copy image err: ' + (e && e.message || e)); return false }
   })
 
   ipcMain.handle('item:copy-word', async (_e, id) => {

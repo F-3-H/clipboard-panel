@@ -362,6 +362,7 @@ function renderClipboard() {
           <button class="mini-btn" data-act="tag" title="标注标签">🏷</button>
           <button class="mini-btn" data-act="copy" title="复制（富文本优先，粘到 Word 是可编辑公式）">⧉</button>
           ${it.latex ? '<button class="mini-btn" data-act="latex" title="复制 LaTeX 源码（对比测试用）">∑</button>' : ''}
+          ${(it.mathml || (it.html && /<math/i.test(it.html))) ? '<button class="mini-btn" data-act="img" title="复制公式图片（高清、不变形）">🖼</button>' : ''}
           <button class="mini-btn${it.pinned ? ' pin-on' : ''}" data-act="pin" title="置顶/取消置顶">${it.pinned ? '★' : '☆'}</button>
           <button class="mini-btn del" data-act="del" title="删除">✕</button>
         </div>
@@ -494,6 +495,10 @@ els.clipList.addEventListener('click', async (e) => {
     else if (act === 'latex') {
       await api.copyLatex(id)
       toast('已复制 LaTeX 源码：WPS 里粘贴后按 Ctrl+= 试试（用于对比）')
+    }
+    else if (act === 'img') {
+      const ok = await api.copyFormulaImage(id)
+      toast(ok ? '已复制公式图片：直接粘到 WPS 即为清晰公式图' : '该条目没有可渲染的公式结构')
     }
     else if (act === 'pin') {
       const willPin = !itemEl.classList.contains('pinned')

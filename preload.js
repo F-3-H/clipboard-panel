@@ -23,6 +23,7 @@ if (contextBridge && ipcRenderer) {
     copyItem: (id) => ipcRenderer.invoke('item:copy', id),
     copyLatex: (id) => ipcRenderer.invoke('item:copy-latex', id),
     copyWord: (id) => ipcRenderer.invoke('item:copy-word', id),
+    copyFormulaImage: (id) => ipcRenderer.invoke('item:copy-image', id),
     setPin: (id, pinned) => ipcRenderer.invoke('item:pin', { id, pinned }),
     deleteItem: (id) => ipcRenderer.invoke('item:delete', id),
     clearHistory: () => ipcRenderer.invoke('item:clear'),
